@@ -159,6 +159,9 @@
     <string name="copy_error_report">复制报告</string>
     <string name="video_resolution">分辨率</string>
     <string name="video_file_size">视频文件大小</string>
+    <string name="file_path">文件路径</string>
+    <string name="video_codec">编码</string>
+    <string name="duration">时长</string>
     <string name="export_to_clipboard">导出到剪贴板</string>
     <string name="import_from_clipboard">从剪贴板导入</string>
     <string name="template_exported">共导出了 %1$d 条模板</string>

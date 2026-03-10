@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Delete
@@ -85,7 +86,7 @@ private enum class SortMode { DATE, NAME, SIZE }
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FileManagerPage(
-    onNavigateBack: () -> Unit,
+    onMenuOpen: () -> Unit = {},
     onNavigateToPlayer: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -162,18 +163,20 @@ fun FileManagerPage(
                     )
                 },
                 navigationIcon = {
+                    val isAtRoot = currentDir == rootDir || !currentDir.absolutePath.startsWith(rootDir.absolutePath)
                     IconButton(
                         onClick = {
-                            if (currentDir != rootDir && currentDir.absolutePath.startsWith(rootDir.absolutePath)) {
+                            if (!isAtRoot) {
                                 currentDir = currentDir.parentFile ?: rootDir
                             } else {
-                                onNavigateBack()
+                                onMenuOpen()
                             }
                         }
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
+                            if (isAtRoot) Icons.Outlined.Menu
+                            else Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = null,
                         )
                     }
                 },

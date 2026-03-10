@@ -658,6 +658,25 @@ object DownloadUtil {
         videoPath: String,
     ): DownloadedVideoInfo =
         this.run {
+            val formats = requestedFormats ?: requestedDownloads?.map { it.toFormat() } ?: emptyList()
+            val videoFormat = formats.firstOrNull { it.containsVideo() }
+            val resolutionText = videoFormat?.let {
+                val w = it.width?.toInt() ?: 0
+                val h = it.height?.toInt() ?: 0
+                if (w > 0 && h > 0) "${w}x${h}" else it.resolution ?: ""
+            } ?: resolution ?: ""
+            val codecText = buildString {
+                videoFormat?.vcodec?.takeIf { it != "none" }?.let { append(it) }
+                val audioFormat = formats.firstOrNull { it.containsAudio() }
+                audioFormat?.acodec?.takeIf { it != "none" }?.let {
+                    if (isNotEmpty()) append(", ")
+                    append(it)
+                }
+            }
+            val formatText = buildString {
+                append(ext)
+                videoFormat?.formatNote?.let { append(" ($it)") }
+            }
             DownloadedVideoInfo(
                 id = id,
                 videoTitle = title,
@@ -666,6 +685,10 @@ object DownloadUtil {
                 thumbnailUrl = thumbnail.toHttpsUrl(),
                 videoPath = videoPath,
                 extractor = extractorKey,
+                videoResolution = resolutionText,
+                videoDuration = duration?.toInt() ?: 0,
+                videoFormat = formatText,
+                videoCodec = codecText,
             )
         }
 

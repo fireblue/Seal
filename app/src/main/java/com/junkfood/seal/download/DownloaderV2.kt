@@ -123,15 +123,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         scope.launch(Dispatchers.IO) {
             // don't write before we read
             enqueueFromBackup()
-            loadCompletedFromDatabase()
 
             snapshotFlow
                 .distinctUntilChanged()
                 .collect {
                     it.forEach { Log.d(TAG, it.value.viewState.title) }
-                    // Only persist non-completed tasks; completed ones live in Room DB
-                    val pendingTasks = it.filter { (_, state) -> state.downloadState !is Completed }
-                    PreferenceUtil.encodeTaskListBackup(pendingTasks)
+                    PreferenceUtil.encodeTaskListBackup(it)
                 }
         }
     }
@@ -167,33 +164,6 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                     state.copy(downloadState = downloadState)
                 }
         taskList.forEach(::enqueue)
-    }
-
-    /** Loads completed downloads from Room database and adds them to the task map. */
-    private fun loadCompletedFromDatabase() {
-        val history = runBlocking { DatabaseUtil.getDownloadHistory() }
-        for (info in history) {
-            val filePath = info.videoPath
-            val fileSize = with(FileUtil) { filePath.getFileSize() }.toDouble()
-            val viewState = Task.ViewState(
-                url = info.videoUrl,
-                title = info.videoTitle,
-                uploader = info.videoAuthor,
-                extractorKey = info.extractor,
-                thumbnailUrl = info.thumbnailUrl,
-                fileSizeApprox = fileSize,
-            )
-            val task = Task(
-                url = info.videoUrl,
-                preferences = DownloadUtil.DownloadPreferences.EMPTY,
-            )
-            val state = Task.State(
-                downloadState = Completed(filePath),
-                videoInfo = null,
-                viewState = viewState,
-            )
-            enqueue(task, state)
-        }
     }
 
     private fun Map<Task, Task.State>.countRunning(): Int = count { (_, state) ->
@@ -381,6 +351,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                                     else null,
                             )
                         }
+
+                        val task = this@download
+                        scope.launch {
+                            delay(5000L)
+                            remove(task)
+                        }
                     }
                     .onFailure { throwable ->
                         if (throwable is YoutubeDL.CanceledException) {
@@ -526,6 +502,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             text = text,
                             intent = null,
                         )
+
+                        val task = this@execute
+                        scope.launch {
+                            delay(5000L)
+                            remove(task)
+                        }
                     }
             }
             .also { downloadState = Running(job = it, taskId = id) }

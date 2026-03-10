@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,12 +55,15 @@ import com.junkfood.seal.ui.component.SealModalBottomSheetM2
 import com.junkfood.seal.ui.theme.SealTheme
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.ToastUtil
+import com.junkfood.seal.util.toDurationText
+import com.junkfood.seal.util.toFileSizeText
 
 @Composable
 fun VideoDetailDrawer(
     sheetState: ModalBottomSheetState,
     info: DownloadedVideoInfo,
     isFileAvailable: Boolean = true,
+    fileSize: Long = 0L,
     onDismissRequest: () -> Unit = {},
     onDelete: () -> Unit = {},
 ) {
@@ -88,6 +94,12 @@ fun VideoDetailDrawer(
             title = videoTitle,
             author = videoAuthor,
             url = videoUrl,
+            filePath = videoPath,
+            resolution = videoResolution,
+            duration = videoDuration,
+            format = videoFormat,
+            codec = videoCodec,
+            fileSize = fileSize,
             isFileAvailable = isFileAvailable,
             onReDownload = onReDownload,
             onDismissRequest = onDismissRequest,
@@ -122,6 +134,12 @@ private fun DrawerPreview() {
                     density = LocalDensity.current,
                 ),
             onReDownload = {},
+            filePath = "/storage/emulated/0/Download/Seal/video.mp4",
+            resolution = "1920x1080",
+            duration = 3661,
+            format = "mp4 (1080p)",
+            codec = "h264, aac",
+            fileSize = 104857600L,
         )
     }
 }
@@ -134,6 +152,12 @@ fun VideoDetailDrawerImpl(
     title: String = stringResource(id = R.string.video_title_sample_text),
     author: String = stringResource(id = R.string.video_creator_sample_text),
     url: String = "https://www.example.com",
+    filePath: String = "",
+    resolution: String = "",
+    duration: Int = 0,
+    format: String = "",
+    codec: String = "",
+    fileSize: Long = 0L,
     onDismissRequest: () -> Unit = {},
     isFileAvailable: Boolean = true,
     onReDownload: (() -> Unit) = {},
@@ -185,6 +209,50 @@ fun VideoDetailDrawerImpl(
                 }
             }
 
+            val hasDetails = filePath.isNotBlank() || resolution.isNotBlank() ||
+                    duration > 0 || format.isNotBlank() || codec.isNotBlank() || fileSize > 0
+            if (hasDetails) {
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                    if (filePath.isNotBlank()) {
+                        DetailRow(
+                            label = stringResource(R.string.file_path),
+                            value = filePath,
+                        )
+                    }
+                    if (fileSize > 0) {
+                        DetailRow(
+                            label = stringResource(R.string.video_file_size),
+                            value = fileSize.toDouble().toFileSizeText(),
+                        )
+                    }
+                    if (resolution.isNotBlank()) {
+                        DetailRow(
+                            label = stringResource(R.string.video_resolution),
+                            value = resolution,
+                        )
+                    }
+                    if (duration > 0) {
+                        DetailRow(
+                            label = stringResource(R.string.duration),
+                            value = duration.toDurationText(),
+                        )
+                    }
+                    if (format.isNotBlank()) {
+                        DetailRow(
+                            label = stringResource(R.string.video_format),
+                            value = format,
+                        )
+                    }
+                    if (codec.isNotBlank()) {
+                        DetailRow(
+                            label = stringResource(R.string.video_codec),
+                            value = codec,
+                        )
+                    }
+                }
+            }
+
             Row(
                 modifier =
                     Modifier.fillMaxWidth()
@@ -220,4 +288,23 @@ fun VideoDetailDrawerImpl(
             }
         },
     )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    SelectionContainer {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
 }

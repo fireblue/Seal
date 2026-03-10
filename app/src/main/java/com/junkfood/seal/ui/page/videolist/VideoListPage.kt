@@ -30,6 +30,7 @@ import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Search
@@ -136,7 +137,7 @@ private const val TAG = "VideoListPage"
 @Composable
 fun VideoListPage(
     viewModel: VideoListViewModel = koinViewModel(),
-    onNavigateBack: () -> Unit,
+    onMenuOpen: () -> Unit = {},
     onNavigateToPlayer: (String) -> Unit = {},
 ) {
     val viewState by viewModel.stateFlow.collectAsStateWithLifecycle()
@@ -291,7 +292,11 @@ fun VideoListPage(
                 title = {
                     Text(modifier = Modifier, text = stringResource(R.string.downloads_history))
                 },
-                navigationIcon = { BackButton { onNavigateBack() } },
+                navigationIcon = {
+                    IconButton(onClick = onMenuOpen) {
+                        Icon(Icons.Outlined.Menu, contentDescription = null)
+                    }
+                },
                 actions = {
                     Row {
                         if (fullVideoList.isNotEmpty()) {
@@ -529,11 +534,13 @@ fun VideoListPage(
     }
 
     if (showBottomSheet) {
-        val isFileAvailable = fileSizeMap[currentVideoInfo.id] != 0L
+        val currentFileSize = fileSizeMap[currentVideoInfo.id] ?: 0L
+        val isFileAvailable = currentFileSize != 0L
         VideoDetailDrawer(
             sheetState = sheetState,
             info = currentVideoInfo,
             isFileAvailable = isFileAvailable,
+            fileSize = currentFileSize,
             onDismissRequest = {
                 scope.launch { sheetState.hide() }.invokeOnCompletion { showBottomSheet = false }
             },

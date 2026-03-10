@@ -26,10 +26,12 @@ import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.NewLabel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -84,7 +86,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun TaskListPage(onNavigateBack: () -> Unit, onNavigateToDetail: (Int) -> Unit) {
+fun TaskListPage(onMenuOpen: () -> Unit = {}, onNavigateToDetail: (Int) -> Unit) {
     val scope = rememberCoroutineScope()
     val view = LocalView.current
 
@@ -106,7 +108,11 @@ fun TaskListPage(onNavigateBack: () -> Unit, onNavigateToDetail: (Int) -> Unit) 
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                     )
                 },
-                navigationIcon = { BackButton { onNavigateBack() } },
+                navigationIcon = {
+                    IconButton(onClick = onMenuOpen) {
+                        Icon(Icons.Outlined.Menu, contentDescription = null)
+                    }
+                },
                 actions = {},
                 scrollBehavior = scrollBehavior,
             )

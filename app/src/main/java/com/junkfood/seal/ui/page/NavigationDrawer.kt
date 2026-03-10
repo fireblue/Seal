@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subscriptions
+import androidx.compose.material.icons.filled.SnippetFolder
 import androidx.compose.material.icons.outlined.SnippetFolder
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.VolunteerActivism
@@ -188,7 +189,13 @@ fun NavigationDrawerSheetContent(
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.downloads_history)) },
-                icon = { Icon(Icons.Outlined.Subscriptions, null) },
+                icon = {
+                    Icon(
+                        if (currentRoute == Route.DOWNLOADS) Icons.Filled.Subscriptions
+                        else Icons.Outlined.Subscriptions,
+                        null,
+                    )
+                },
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -198,7 +205,13 @@ fun NavigationDrawerSheetContent(
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.file_manager)) },
-                icon = { Icon(Icons.Outlined.SnippetFolder, null) },
+                icon = {
+                    Icon(
+                        if (currentRoute == Route.FILE_MANAGER) Icons.Filled.SnippetFolder
+                        else Icons.Outlined.SnippetFolder,
+                        null,
+                    )
+                },
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -381,6 +394,19 @@ fun NavigationRailContent(
             modifier = Modifier,
             selected = currentTopDestination == Route.DOWNLOADS,
             onClick = { onNavigateToRoute(Route.DOWNLOADS) },
+        )
+
+        NavigationRailItemVariant(
+            icon = {
+                Icon(
+                    if (currentTopDestination == Route.FILE_MANAGER) Icons.Filled.SnippetFolder
+                    else Icons.Outlined.SnippetFolder,
+                    stringResource(R.string.file_manager),
+                )
+            },
+            modifier = Modifier,
+            selected = currentTopDestination == Route.FILE_MANAGER,
+            onClick = { onNavigateToRoute(Route.FILE_MANAGER) },
         )
 
         NavigationRailItemVariant(

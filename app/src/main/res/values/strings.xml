@@ -166,6 +166,9 @@
     <string name="copy_error_report">Copy report</string>
     <string name="video_resolution">Video resolution</string>
     <string name="video_file_size">Video file size</string>
+    <string name="file_path">File path</string>
+    <string name="video_codec">Codec</string>
+    <string name="duration">Duration</string>
     <string name="export_to_clipboard">Export to clipboard</string>
     <string name="import_from_clipboard">Import from clipboard</string>
     <string name="template_exported">Exported %1$d template(s)</string>

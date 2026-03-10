@@ -16,6 +16,10 @@ data class DownloadedVideoInfo(
     val thumbnailUrl: String,
     val videoPath: String,
     @ColumnInfo(defaultValue = "Unknown") val extractor: String = "Unknown",
+    @ColumnInfo(defaultValue = "") val videoResolution: String = "",
+    @ColumnInfo(defaultValue = "0") val videoDuration: Int = 0,
+    @ColumnInfo(defaultValue = "") val videoFormat: String = "",
+    @ColumnInfo(defaultValue = "") val videoCodec: String = "",
 ) {
     @Ignore
     constructor() :
