@@ -116,7 +116,9 @@ import com.junkfood.seal.ui.page.downloadv2.configure.PreferencesMock
 import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.download
 import com.junkfood.seal.ui.theme.SealTheme
+import com.junkfood.seal.util.CLIPBOARD_MONITORING
 import com.junkfood.seal.util.DownloadUtil
+import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.getErrorReport
 import com.junkfood.seal.util.makeToast
@@ -160,7 +162,7 @@ enum class Filter {
                 }
             }
             Canceled -> {
-                state is Error || state is Task.DownloadState.Canceled
+                state is Error || state is Task.DownloadState.Canceled || state is Task.DownloadState.Paused
             }
             Finished -> {
                 state is Completed
@@ -185,6 +187,8 @@ sealed interface UiAction {
 
     data object Cancel : UiAction
 
+    data object Pause : UiAction
+
     data object Delete : UiAction
 
     data object Resume : UiAction
@@ -198,6 +202,7 @@ fun DownloadPageV2(
     modifier: Modifier = Modifier,
     onMenuOpen: (() -> Unit) = {},
     dialogViewModel: DownloadDialogViewModel,
+    onNavigateToPlayer: (String) -> Unit = {},
     downloader: DownloaderV2 = koinInject(),
 ) {
     val view = LocalView.current
@@ -205,6 +210,25 @@ fun DownloadPageV2(
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     val uriHandler = LocalUriHandler.current
+
+    // Clipboard URL detection on resume
+    val clipboardMonitoring = PreferenceUtil.run { CLIPBOARD_MONITORING.getBoolean(default = false) }
+    var lastClipboardUrl by remember { mutableStateOf("") }
+
+    androidx.lifecycle.compose.LifecycleResumeEffect(clipboardMonitoring) {
+        if (clipboardMonitoring) {
+            val clipText = clipboardManager.getText()?.text
+            if (!clipText.isNullOrBlank()) {
+                val urls = com.junkfood.seal.util.findURLsFromString(clipText, firstMatchOnly = true)
+                val url = urls.firstOrNull()
+                if (url != null && url != lastClipboardUrl) {
+                    lastClipboardUrl = url
+                    dialogViewModel.postAction(Action.ShowSheet(listOf(url)))
+                }
+            }
+        }
+        onPauseOrDispose { }
+    }
 
     DownloadPageImplV2(
         modifier = modifier,
@@ -218,6 +242,7 @@ fun DownloadPageV2(
         view.slightHapticFeedback()
         when (action) {
             UiAction.Cancel -> downloader.cancel(task)
+            UiAction.Pause -> downloader.pause(task)
             UiAction.Delete -> downloader.remove(task)
             UiAction.Resume -> downloader.restart(task)
             is UiAction.CopyErrorReport -> {
@@ -231,8 +256,19 @@ fun DownloadPageV2(
                 context.makeToast(R.string.link_copied)
             }
             is UiAction.OpenFile -> {
-                action.filePath?.let {
-                    FileUtil.openFile(path = it) { context.makeToast(R.string.file_unavailable) }
+                action.filePath?.let { path ->
+                    val ext = path.substringAfterLast('.', "").lowercase()
+                    val mediaExtensions = setOf(
+                        "mp4", "mkv", "webm", "avi", "mov", "flv", "m4v",
+                        "mp3", "m4a", "ogg", "opus", "flac", "wav", "aac", "wma",
+                    )
+                    if (ext in mediaExtensions) {
+                        onNavigateToPlayer(path)
+                    } else {
+                        FileUtil.openFile(path = path) {
+                            context.makeToast(R.string.file_unavailable)
+                        }
+                    }
                 }
             }
             is UiAction.OpenThumbnailURL -> {
@@ -754,6 +790,7 @@ internal class DownloadPageV2Test {
                                 val newDownloadState =
                                     when (state.downloadState) {
                                         is Canceled -> Idle
+                                        is Task.DownloadState.Paused -> Idle
                                         is Completed -> Idle
                                         is Error -> Idle
                                         is FetchingInfo -> ReadyWithInfo
@@ -782,6 +819,10 @@ internal class DownloadPageV2Test {
             }
 
             override fun cancel(task: Task): Boolean {
+                return false
+            }
+
+            override fun pause(task: Task): Boolean {
                 return false
             }
 

@@ -109,6 +109,22 @@ const val USE_CUSTOM_AUDIO_PRESET = "custom_audio_preset"
 
 const val MERGE_MULTI_AUDIO_STREAM = "multi_audio_stream"
 
+const val YOLO_MODE = "yolo_mode"
+const val AUTO_RESUME_ON_RESTART = "auto_resume_on_restart"
+const val CLIPBOARD_MONITORING = "clipboard_monitoring"
+const val GLOBAL_DOWNLOAD_PRESET = "global_download_preset"
+private const val SITE_PRESET_PREFIX = "site_preset_"
+
+enum class DownloadPreset(val value: Int) {
+    BEST_QUALITY(0),
+    BEST_COMPATIBILITY(1),
+    AUDIO_ONLY(2);
+
+    companion object {
+        fun fromValue(value: Int): DownloadPreset? = entries.firstOrNull { it.value == value }
+    }
+}
+
 const val DOWNLOAD_TYPE_INITIALIZATION = "download_type_init"
 private const val DOWNLOAD_TYPE = "download_type"
 
@@ -453,6 +469,47 @@ object PreferenceUtil {
     fun getSavedLinks(): Set<String> = kv.decodeStringSet(SAVED_LINKS) ?: emptySet()
 
     fun updateSavedLinks(links: Set<String>) = kv.encode(SAVED_LINKS, links)
+
+    fun getGlobalPreset(): DownloadPreset? =
+        if (containsKey(GLOBAL_DOWNLOAD_PRESET))
+            DownloadPreset.fromValue(GLOBAL_DOWNLOAD_PRESET.getInt(-1))
+        else null
+
+    fun setGlobalPreset(preset: DownloadPreset?) {
+        if (preset != null) GLOBAL_DOWNLOAD_PRESET.updateInt(preset.value)
+        else kv.removeValueForKey(GLOBAL_DOWNLOAD_PRESET)
+    }
+
+    fun getSitePreset(domain: String): DownloadPreset? {
+        val key = SITE_PRESET_PREFIX + domain
+        return if (containsKey(key)) DownloadPreset.fromValue(key.getInt(-1)) else null
+    }
+
+    fun setSitePreset(domain: String, preset: DownloadPreset) {
+        (SITE_PRESET_PREFIX + domain).updateInt(preset.value)
+    }
+
+    fun removeSitePreset(domain: String) {
+        kv.removeValueForKey(SITE_PRESET_PREFIX + domain)
+    }
+
+    fun getAllSitePresets(): Map<String, DownloadPreset> {
+        return kv.allKeys()
+            ?.filter { it.startsWith(SITE_PRESET_PREFIX) }
+            ?.mapNotNull { key ->
+                val domain = key.removePrefix(SITE_PRESET_PREFIX)
+                DownloadPreset.fromValue(key.getInt(-1))?.let { domain to it }
+            }
+            ?.toMap() ?: emptyMap()
+    }
+
+    fun extractDomain(url: String): String? =
+        runCatching { java.net.URL(url).host?.removePrefix("www.") }.getOrNull()
+
+    fun getPresetForUrl(url: String): DownloadPreset? {
+        val domain = extractDomain(url) ?: return getGlobalPreset()
+        return getSitePreset(domain) ?: getGlobalPreset()
+    }
 
     private const val TAG = "PreferenceUtil"
 }

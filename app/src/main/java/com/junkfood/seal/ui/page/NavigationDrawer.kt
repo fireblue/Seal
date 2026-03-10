@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subscriptions
+import androidx.compose.material.icons.outlined.SnippetFolder
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material.icons.rounded.BugReport
@@ -194,6 +195,16 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.DOWNLOADS) }
                 },
                 selected = currentRoute == Route.DOWNLOADS,
+            )
+            NavigationDrawerItem(
+                label = { Text(stringResource(R.string.file_manager)) },
+                icon = { Icon(Icons.Outlined.SnippetFolder, null) },
+                onClick = {
+                    scope
+                        .launch { onDismissRequest() }
+                        .invokeOnCompletion { onNavigateToRoute(Route.FILE_MANAGER) }
+                },
+                selected = currentRoute == Route.FILE_MANAGER,
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.custom_command)) },

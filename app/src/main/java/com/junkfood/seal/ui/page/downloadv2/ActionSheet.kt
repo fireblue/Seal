@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.TextSnippet
@@ -25,6 +29,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.VideoFile
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +53,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.junkfood.seal.R
@@ -59,6 +66,7 @@ import com.junkfood.seal.download.Task.DownloadState.Completed
 import com.junkfood.seal.download.Task.DownloadState.Error
 import com.junkfood.seal.download.Task.DownloadState.FetchingInfo
 import com.junkfood.seal.download.Task.DownloadState.Idle
+import com.junkfood.seal.download.Task.DownloadState.Paused
 import com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
 import com.junkfood.seal.download.Task.DownloadState.Running
 import com.junkfood.seal.ui.common.LocalFixedColorRoles
@@ -133,6 +141,18 @@ private fun DeleteButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         imageVector = Icons.Outlined.Delete,
         outlineColor = MaterialTheme.colorScheme.outlineVariant,
         text = stringResource(R.string.delete),
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun PauseButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.tertiaryFixed,
+        contentColor = LocalFixedColorRoles.current.onTertiaryFixedVariant,
+        imageVector = Icons.Rounded.Pause,
+        text = stringResource(R.string.pause),
         onClick = onClick,
     )
 }
@@ -253,6 +273,27 @@ fun SheetContent(
             )
         }
 
+        if (downloadState is Error) {
+            item {
+                val errorMessage =
+                    downloadState.throwable.message ?: stringResource(R.string.unknown_error)
+                SelectionContainer {
+                    Text(
+                        text = errorMessage,
+                        modifier =
+                            Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .verticalScroll(rememberScrollState()),
+                        style =
+                            MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        color = MaterialTheme.colorScheme.error,
+                        softWrap = true,
+                    )
+                }
+            }
+        }
+
         item {
             LazyRow(
                 modifier = Modifier.padding(top = 12.dp, bottom = 24.dp),
@@ -288,6 +329,20 @@ fun LazyListScope.ActionButtons(
                 }
             }
         }
+        is Paused -> {
+            item(key = "ResumeButton") {
+                ResumeButton(modifier = Modifier.animateItem()) {
+                    onActionPost(task, UiAction.Resume)
+                    onDismissRequest()
+                }
+            }
+            item(key = "CancelButton") {
+                CancelButton(modifier = Modifier.animateItem()) {
+                    onActionPost(task, UiAction.Cancel)
+                    onDismissRequest()
+                }
+            }
+        }
         is Completed -> {
             item(key = "PlayButton") {
                 PlayButton(modifier = Modifier.animateItem()) {
@@ -316,8 +371,21 @@ fun LazyListScope.ActionButtons(
         }
         is FetchingInfo,
         ReadyWithInfo,
-        Idle,
+        Idle -> {
+            item(key = "CancelButton") {
+                CancelButton(modifier = Modifier.animateItem()) {
+                    onActionPost(task, UiAction.Cancel)
+                    onDismissRequest()
+                }
+            }
+        }
         is Running -> {
+            item(key = "PauseButton") {
+                PauseButton(modifier = Modifier.animateItem()) {
+                    onActionPost(task, UiAction.Pause)
+                    onDismissRequest()
+                }
+            }
             item(key = "CancelButton") {
                 CancelButton(modifier = Modifier.animateItem()) {
                     onActionPost(task, UiAction.Cancel)

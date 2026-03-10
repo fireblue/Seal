@@ -93,6 +93,7 @@ object NotificationUtil {
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
             .setContentTitle(title)
+            .setContentText(text)
             .setProgress(PROGRESS_MAX, progress, progress <= 0)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

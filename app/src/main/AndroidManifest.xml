@@ -71,6 +71,22 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".YoloDownloadActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/yolo_download_label"
+            android:launchMode="singleInstance"
+            android:theme="@style/Theme.Seal.Dialog">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".DownloadService"
             android:enabled="true"
@@ -78,8 +94,14 @@
             android:foregroundServiceType="specialUse" />
 
         <activity
+            android:name=".ui.page.player.PlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.Seal" />
+
+        <activity
             android:name=".MainActivity"
-            android:configChanges="orientation"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="unspecified"
