@@ -20,11 +20,13 @@ import com.junkfood.seal.download.Task.DownloadState.Running
 import com.junkfood.seal.download.Task.RestartableAction.Download
 import com.junkfood.seal.download.Task.RestartableAction.FetchInfo
 import com.junkfood.seal.download.Task.TypeInfo
+import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.NotificationUtil
 import com.junkfood.seal.util.AUTO_RESUME_ON_RESTART
 import com.junkfood.seal.util.PreferenceUtil
+import kotlinx.coroutines.runBlocking
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlin.collections.component1
@@ -121,20 +123,25 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         scope.launch(Dispatchers.IO) {
             // don't write before we read
             enqueueFromBackup()
+            loadCompletedFromDatabase()
 
             snapshotFlow
                 .distinctUntilChanged()
                 .collect {
                     it.forEach { Log.d(TAG, it.value.viewState.title) }
-                    PreferenceUtil.encodeTaskListBackup(it)
+                    // Only persist non-completed tasks; completed ones live in Room DB
+                    val pendingTasks = it.filter { (_, state) -> state.downloadState !is Completed }
+                    PreferenceUtil.encodeTaskListBackup(pendingTasks)
                 }
         }
     }
 
+    /** Restores non-completed tasks from SharedPreferences backup. */
     private fun enqueueFromBackup() {
         val autoResume = PreferenceUtil.run { AUTO_RESUME_ON_RESTART.getBoolean(default = true) }
         val taskList =
             PreferenceUtil.decodeTaskListBackup()
+                .filter { (_, state) -> state.downloadState !is Completed }
                 .mapValues { (_, state) ->
                     val preState = state.downloadState
                     val downloadState =
@@ -157,17 +164,36 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                                 else -> preState
                             }
                         }
-                    // Update file size for completed tasks from local file
-                    val viewState = if (preState is Completed && state.viewState.fileSizeApprox <= 0) {
-                        preState.filePath?.let { path ->
-                            val fileSize = with(FileUtil) { path.getFileSize() }.toDouble()
-                            if (fileSize > 0) state.viewState.copy(fileSizeApprox = fileSize)
-                            else null
-                        } ?: state.viewState
-                    } else state.viewState
-                    state.copy(downloadState = downloadState, viewState = viewState)
+                    state.copy(downloadState = downloadState)
                 }
         taskList.forEach(::enqueue)
+    }
+
+    /** Loads completed downloads from Room database and adds them to the task map. */
+    private fun loadCompletedFromDatabase() {
+        val history = runBlocking { DatabaseUtil.getDownloadHistory() }
+        for (info in history) {
+            val filePath = info.videoPath
+            val fileSize = with(FileUtil) { filePath.getFileSize() }.toDouble()
+            val viewState = Task.ViewState(
+                url = info.videoUrl,
+                title = info.videoTitle,
+                uploader = info.videoAuthor,
+                extractorKey = info.extractor,
+                thumbnailUrl = info.thumbnailUrl,
+                fileSizeApprox = fileSize,
+            )
+            val task = Task(
+                url = info.videoUrl,
+                preferences = DownloadUtil.DownloadPreferences.EMPTY,
+            )
+            val state = Task.State(
+                downloadState = Completed(filePath),
+                videoInfo = null,
+                viewState = viewState,
+            )
+            enqueue(task, state)
+        }
     }
 
     private fun Map<Task, Task.State>.countRunning(): Int = count { (_, state) ->

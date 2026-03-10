@@ -35,7 +35,7 @@ object DatabaseUtil {
 
     fun getDownloadHistoryFlow() = dao.getDownloadHistoryFlow()
 
-    private suspend fun getDownloadHistory() = dao.getDownloadHistory()
+    suspend fun getDownloadHistory() = dao.getDownloadHistory()
 
     fun getTemplateFlow() = dao.getTemplateFlow()
 
