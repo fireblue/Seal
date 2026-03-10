@@ -33,7 +33,7 @@ import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -49,6 +49,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.junkfood.seal.App
 import com.junkfood.seal.R
 import com.junkfood.seal.ui.common.Route
@@ -104,32 +105,29 @@ fun SettingsPage(onMenuOpen: () -> Unit = {}, onNavigateTo: (String) -> Unit) {
                 showBatteryHint = !pm.isIgnoringBatteryOptimizations(context.packageName)
             }
         }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     val showSponsorMessage by SHOW_SPONSOR_MSG.intState
 
     LaunchedEffect(Unit) { SHOW_SPONSOR_MSG.updateInt(showSponsorMessage + 1) }
 
-    val typography = MaterialTheme.typography
-
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            val overrideTypography =
-                remember(typography) { typography.copy(headlineMedium = typography.displaySmall) }
-
-            MaterialTheme(typography = overrideTypography) {
-                LargeTopAppBar(
-                    title = { Text(text = stringResource(id = R.string.settings)) },
-                    navigationIcon = {
-                        IconButton(onClick = onMenuOpen) {
-                            Icon(Icons.Outlined.Menu, contentDescription = null)
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    expandedHeight = TopAppBarDefaults.LargeAppBarExpandedHeight + 24.dp,
-                )
-            }
+            TopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(id = R.string.settings),
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onMenuOpen) {
+                        Icon(Icons.Outlined.Menu, contentDescription = null)
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
         },
     ) {
         LazyColumn(modifier = Modifier, contentPadding = it) {

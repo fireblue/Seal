@@ -42,7 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -51,7 +51,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +77,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.junkfood.seal.App
@@ -148,13 +148,7 @@ fun VideoListPage(
     val videoList = if (viewState.isSearching) searchedVideoList else fullVideoList
     val filterSet by viewModel.filterSetFlow.collectAsState(mutableSetOf())
 
-    val scrollBehavior =
-        if (fullVideoList.isNotEmpty())
-            TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
-                rememberTopAppBarState(),
-                canScroll = { true },
-            )
-        else TopAppBarDefaults.pinnedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     val scope = rememberCoroutineScope()
     val softKeyboardController = LocalSoftwareKeyboardController.current
@@ -288,9 +282,12 @@ fun VideoListPage(
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = {
-                    Text(modifier = Modifier, text = stringResource(R.string.downloads_history))
+                    Text(
+                        text = stringResource(R.string.downloads_history),
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onMenuOpen) {
