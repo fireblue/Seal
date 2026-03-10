@@ -135,8 +135,7 @@ private const val TAG = "DownloadPageV2"
 enum class Filter {
     All,
     Downloading,
-    Canceled,
-    Finished;
+    Canceled;
 
     @Composable
     @ReadOnlyComposable
@@ -145,7 +144,6 @@ enum class Filter {
             All -> stringResource(R.string.all)
             Downloading -> stringResource(R.string.status_downloading)
             Canceled -> stringResource(R.string.status_canceled)
-            Finished -> stringResource(R.string.status_completed)
         }
 
     fun predict(entry: Pair<Task, Task.State>): Boolean {
@@ -163,9 +161,6 @@ enum class Filter {
             }
             Canceled -> {
                 state is Error || state is Task.DownloadState.Canceled || state is Task.DownloadState.Paused
-            }
-            Finished -> {
-                state is Completed
             }
             else -> {
                 true

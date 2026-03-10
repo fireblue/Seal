@@ -74,7 +74,7 @@ import org.koin.androidx.compose.koinViewModel
 private const val TAG = "HomeEntry"
 
 private val TopDestinations =
-    listOf(Route.HOME, Route.TASK_LIST, Route.SETTINGS_PAGE, Route.DOWNLOADS)
+    listOf(Route.DOWNLOADS, Route.HOME, Route.FILE_MANAGER, Route.TASK_LIST, Route.SETTINGS_PAGE)
 
 @Composable
 fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
@@ -83,7 +83,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
     val context = LocalContext.current
     val view = LocalView.current
     val windowWidth = LocalWindowWidthState.current
-    val sheetState by dialogViewModel.sheetStateFlow.collectAsStateWithLifecycle()
+    val sheetValue by dialogViewModel.sheetValueFlow.collectAsStateWithLifecycle()
     val cookiesViewModel: CookiesViewModel = koinViewModel()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -99,9 +99,14 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         }
     }
 
-    if (sheetState is DownloadDialogViewModel.SheetState.Configure) {
-        if (navController.currentDestination?.route != Route.HOME) {
-            navController.popBackStack(route = Route.HOME, inclusive = false, saveState = true)
+    LaunchedEffect(sheetValue) {
+        if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
+            if (navController.currentDestination?.route != Route.HOME) {
+                navController.navigate(Route.HOME) {
+                    launchSingleTop = true
+                    popUpTo(route = Route.DOWNLOADS)
+                }
+            }
         }
     }
 
@@ -121,13 +126,13 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
             currentRoute = currentRoute,
             currentTopDestination = currentTopDestination,
             showQuickSettings = true,
-            gesturesEnabled = currentRoute == Route.HOME,
+            gesturesEnabled = currentRoute in TopDestinations,
             onDismissRequest = { drawerState.close() },
             onNavigateToRoute = {
                 if (currentRoute != it) {
                     navController.navigate(it) {
                         launchSingleTop = true
-                        popUpTo(route = Route.HOME)
+                        popUpTo(route = Route.DOWNLOADS)
                     }
                 }
             },
@@ -143,15 +148,16 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
             NavHost(
                 modifier = Modifier.align(Alignment.Center),
                 navController = navController,
-                startDestination = Route.HOME,
+                startDestination = Route.DOWNLOADS,
             ) {
+                val openDrawer: () -> Unit = {
+                    view.slightHapticFeedback()
+                    scope.launch { drawerState.open() }
+                }
                 animatedComposable(Route.HOME) {
                     DownloadPageV2(
                         dialogViewModel = dialogViewModel,
-                        onMenuOpen = {
-                            view.slightHapticFeedback()
-                            scope.launch { drawerState.open() }
-                        },
+                        onMenuOpen = openDrawer,
                         onNavigateToPlayer = { path ->
                             PlayerActivity.start(context, path)
                         },
@@ -159,7 +165,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 }
                 animatedComposable(Route.DOWNLOADS) {
                     VideoListPage(
-                        onNavigateBack = { onNavigateBack() },
+                        onMenuOpen = openDrawer,
                         onNavigateToPlayer = { path ->
                             PlayerActivity.start(context, path)
                         },
@@ -167,7 +173,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 }
                 animatedComposable(Route.FILE_MANAGER) {
                     FileManagerPage(
-                        onNavigateBack = onNavigateBack,
+                        onMenuOpen = openDrawer,
                         onNavigateToPlayer = { path ->
                             PlayerActivity.start(context, path)
                         },
@@ -175,7 +181,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 }
                 animatedComposableVariant(Route.TASK_LIST) {
                     TaskListPage(
-                        onNavigateBack = onNavigateBack,
+                        onMenuOpen = openDrawer,
                         onNavigateToDetail = { navController.navigate(Route.TASK_LOG id it) },
                     )
                 }
@@ -190,6 +196,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 }
 
                 settingsGraph(
+                    onMenuOpen = openDrawer,
                     onNavigateBack = onNavigateBack,
                     onNavigateTo = { route ->
                         navController.navigate(route = route) { launchSingleTop = true }
@@ -205,6 +212,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
 }
 
 fun NavGraphBuilder.settingsGraph(
+    onMenuOpen: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateTo: (route: String) -> Unit,
     cookiesViewModel: CookiesViewModel,
@@ -214,7 +222,7 @@ fun NavGraphBuilder.settingsGraph(
             DownloadDirectoryPreferences(onNavigateBack)
         }
         animatedComposable(Route.SETTINGS_PAGE) {
-            SettingsPage(onNavigateBack = onNavigateBack, onNavigateTo = onNavigateTo)
+            SettingsPage(onMenuOpen = onMenuOpen, onNavigateTo = onNavigateTo)
         }
         animatedComposable(Route.GENERAL_DOWNLOAD_PREFERENCES) {
             GeneralDownloadPreferences(onNavigateBack = { onNavigateBack() }) {

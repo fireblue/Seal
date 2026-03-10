@@ -16,6 +16,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.EnergySavingsLeaf
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.rounded.VideoFile
 import androidx.compose.material.icons.rounded.ViewComfy
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -61,7 +64,7 @@ import com.junkfood.seal.util.SHOW_SPONSOR_MSG
 @SuppressLint("BatteryLife")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsPage(onNavigateBack: () -> Unit, onNavigateTo: (String) -> Unit) {
+fun SettingsPage(onMenuOpen: () -> Unit = {}, onNavigateTo: (String) -> Unit) {
     val context = LocalContext.current
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     var showBatteryHint by remember {
@@ -118,7 +121,11 @@ fun SettingsPage(onNavigateBack: () -> Unit, onNavigateTo: (String) -> Unit) {
             MaterialTheme(typography = overrideTypography) {
                 LargeTopAppBar(
                     title = { Text(text = stringResource(id = R.string.settings)) },
-                    navigationIcon = { BackButton(onNavigateBack) },
+                    navigationIcon = {
+                        IconButton(onClick = onMenuOpen) {
+                            Icon(Icons.Outlined.Menu, contentDescription = null)
+                        }
+                    },
                     scrollBehavior = scrollBehavior,
                     expandedHeight = TopAppBarDefaults.LargeAppBarExpandedHeight + 24.dp,
                 )
