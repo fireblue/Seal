@@ -844,6 +844,10 @@ object DownloadUtil {
 
                     for (s in request.buildCommand()) Log.d(TAG, s)
                 }
+
+            val downloadStartTime = System.currentTimeMillis()
+
+            request
                 .runCatching {
                     YoutubeDL.getInstance()
                         .execute(request = this, processId = taskId, callback = progressCallback)
@@ -860,6 +864,7 @@ object DownloadUtil {
                             videoInfo = videoInfo,
                             downloadPath = pathBuilder.toString(),
                             sdcardUri = sdcardUri,
+                            downloadStartTime = downloadStartTime,
                         )
                     } else Result.failure(th)
                 }
@@ -868,6 +873,7 @@ object DownloadUtil {
                 videoInfo = videoInfo,
                 downloadPath = pathBuilder.toString(),
                 sdcardUri = sdcardUri,
+                downloadStartTime = downloadStartTime,
             )
         }
     }
@@ -877,6 +883,7 @@ object DownloadUtil {
         videoInfo: VideoInfo,
         downloadPath: String,
         sdcardUri: String,
+        downloadStartTime: Long = 0L,
     ): Result<List<String>> =
         preferences.run {
             val fileName =
@@ -905,6 +912,7 @@ object DownloadUtil {
                 FileUtil.scanFileToMediaLibraryPostDownload(
                         title = fileName,
                         downloadDir = downloadPath,
+                        startTime = downloadStartTime,
                     )
                     .run {
                         if (privateMode) Result.success(emptyList())
