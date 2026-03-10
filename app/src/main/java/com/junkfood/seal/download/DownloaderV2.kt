@@ -14,6 +14,7 @@ import com.junkfood.seal.download.Task.DownloadState.Completed
 import com.junkfood.seal.download.Task.DownloadState.Error
 import com.junkfood.seal.download.Task.DownloadState.FetchingInfo
 import com.junkfood.seal.download.Task.DownloadState.Idle
+import com.junkfood.seal.download.Task.DownloadState.Paused
 import com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
 import com.junkfood.seal.download.Task.DownloadState.Running
 import com.junkfood.seal.download.Task.RestartableAction.Download
@@ -22,6 +23,7 @@ import com.junkfood.seal.download.Task.TypeInfo
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.NotificationUtil
+import com.junkfood.seal.util.AUTO_RESUME_ON_RESTART
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
@@ -35,12 +37,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 
 private const val TAG = "DownloaderV2"
 
 private const val MAX_CONCURRENCY = 3
+private const val MAX_RETRIES = 3
+private const val RETRY_BASE_DELAY_MS = 3000L
 
 interface DownloaderV2 {
     fun getTaskStateMap(): SnapshotStateMap<Task, Task.State>
@@ -50,6 +55,8 @@ interface DownloaderV2 {
     fun cancel(taskId: String): Boolean {
         return getTaskStateMap().keys.find { it.id == taskId }?.let { cancel(it) } ?: false
     }
+
+    fun pause(task: Task): Boolean
 
     fun restart(task: Task)
 
@@ -72,6 +79,10 @@ internal object FakeDownloaderV2 : DownloaderV2 {
     }
 
     override fun cancel(task: Task): Boolean {
+        return false
+    }
+
+    override fun pause(task: Task): Boolean {
         return false
     }
 
@@ -112,7 +123,6 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             enqueueFromBackup()
 
             snapshotFlow
-                .map { it.filter { it.value.downloadState !is Completed } }
                 .distinctUntilChanged()
                 .collect {
                     it.forEach { Log.d(TAG, it.value.viewState.title) }
@@ -122,29 +132,40 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     }
 
     private fun enqueueFromBackup() {
+        val autoResume = PreferenceUtil.run { AUTO_RESUME_ON_RESTART.getBoolean(default = true) }
         val taskList =
             PreferenceUtil.decodeTaskListBackup()
-                .filter { it.value.downloadState !is Completed }
                 .mapValues { (_, state) ->
                     val preState = state.downloadState
                     val downloadState =
-                        when (preState) {
-                            is FetchingInfo,
-                            Idle -> {
-                                Canceled(action = FetchInfo)
+                        if (autoResume) {
+                            when (preState) {
+                                is FetchingInfo,
+                                Idle -> Idle
+                                is Running -> ReadyWithInfo
+                                ReadyWithInfo -> ReadyWithInfo
+                                is Paused -> preState
+                                else -> preState
                             }
-                            is Running -> {
-                                Canceled(action = Download, progress = preState.progress)
-                            }
-
-                            ReadyWithInfo -> {
-                                Canceled(action = Download, progress = null)
-                            }
-                            else -> {
-                                preState
+                        } else {
+                            when (preState) {
+                                is FetchingInfo,
+                                Idle -> Canceled(action = FetchInfo)
+                                is Running -> Canceled(action = Download, progress = preState.progress)
+                                ReadyWithInfo -> Canceled(action = Download, progress = null)
+                                is Paused -> preState
+                                else -> preState
                             }
                         }
-                    state.copy(downloadState = downloadState)
+                    // Update file size for completed tasks from local file
+                    val viewState = if (preState is Completed && state.viewState.fileSizeApprox <= 0) {
+                        preState.filePath?.let { path ->
+                            val fileSize = with(FileUtil) { path.getFileSize() }.toDouble()
+                            if (fileSize > 0) state.viewState.copy(fileSizeApprox = fileSize)
+                            else null
+                        } ?: state.viewState
+                    } else state.viewState
+                    state.copy(downloadState = downloadState, viewState = viewState)
                 }
         taskList.forEach(::enqueue)
     }
@@ -180,6 +201,8 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     }
 
     override fun cancel(task: Task): Boolean = task.cancelImpl()
+
+    override fun pause(task: Task): Boolean = task.pauseImpl()
 
     override fun restart(task: Task) {
         task.restartImpl()
@@ -266,13 +289,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         if (throwable is YoutubeDL.CanceledException) {
                             return@onFailure
                         }
-                        task.downloadState = Error(throwable = throwable, action = FetchInfo)
-                        NotificationUtil.notifyError(
-                            title = viewState.title,
-                            textId = R.string.download_error_msg,
-                            notificationId = notificationId,
-                            report = throwable.stackTraceToString(),
-                        )
+                        task.handleFailure(throwable, FetchInfo)
                     }
             }
             .also { job -> downloadState = FetchingInfo(job = job, taskId = id) }
@@ -310,6 +327,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                     )
                     .onSuccess { pathList ->
                         downloadState = Completed(pathList.firstOrNull())
+                        pathList.firstOrNull()?.let { path ->
+                            val fileSize = with(FileUtil) { path.getFileSize() }.toDouble()
+                            if (fileSize > 0) {
+                                viewState = viewState.copy(fileSizeApprox = fileSize)
+                            }
+                        }
 
                         val text =
                             appContext.getString(
@@ -337,16 +360,34 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         if (throwable is YoutubeDL.CanceledException) {
                             return@onFailure
                         }
-                        downloadState = Error(throwable = throwable, action = Download)
-                        NotificationUtil.notifyError(
-                            title = viewState.title,
-                            textId = R.string.fetch_info_error_msg,
-                            notificationId = notificationId,
-                            report = throwable.stackTraceToString(),
-                        )
+                        handleFailure(throwable, Download)
                     }
             }
             .also { job -> downloadState = Running(job = job, taskId = id) }
+    }
+
+    private fun Task.handleFailure(throwable: Throwable, action: Task.RestartableAction, retryCount: Int = 0) {
+        if (retryCount < MAX_RETRIES) {
+            downloadState = Error(throwable = throwable, action = action, retryCount = retryCount + 1)
+            scope.launch {
+                val delayMs = RETRY_BASE_DELAY_MS * (1L shl retryCount) // 3s, 6s, 12s
+                delay(delayMs)
+                if (downloadState is Error) {
+                    downloadState = when (action) {
+                        Download -> ReadyWithInfo
+                        FetchInfo -> Idle
+                    }
+                }
+            }
+        } else {
+            downloadState = Error(throwable = throwable, action = action, retryCount = retryCount)
+            NotificationUtil.notifyError(
+                title = viewState.title,
+                textId = R.string.download_error_msg,
+                notificationId = notificationId,
+                report = throwable.stackTraceToString(),
+            )
+        }
     }
 
     private fun Task.cancelImpl(): Boolean {
@@ -374,6 +415,25 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             }
         }
         return true
+    }
+
+    private fun Task.pauseImpl(): Boolean {
+        when (val preState = downloadState) {
+            is DownloadState.Cancelable -> {
+                val res = YoutubeDL.destroyProcessById(preState.taskId)
+                if (res) {
+                    preState.job.cancel()
+                    val progress = if (preState is Running) preState.progress else null
+                    NotificationUtil.cancelNotification(notificationId)
+                    downloadState =
+                        Paused(action = preState.action, progress = progress)
+                }
+                return res
+            }
+            else -> {
+                return false
+            }
+        }
     }
 
     private fun Task.restartImpl() {
@@ -427,13 +487,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         if (throwable is YoutubeDL.CanceledException) {
                             return@onFailure
                         }
-                        downloadState = Error(throwable = throwable, action = Download)
-                        NotificationUtil.notifyError(
-                            title = viewState.title,
-                            textId = R.string.fetch_info_error_msg,
-                            notificationId = notificationId,
-                            report = throwable.stackTraceToString(),
-                        )
+                        handleFailure(throwable, Download)
                     }
                     .onSuccess {
                         downloadState = Completed(null)

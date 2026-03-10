@@ -64,6 +64,8 @@ import com.junkfood.seal.ui.page.settings.network.CookieProfilePage
 import com.junkfood.seal.ui.page.settings.network.CookiesViewModel
 import com.junkfood.seal.ui.page.settings.network.NetworkPreferences
 import com.junkfood.seal.ui.page.settings.network.WebViewPage
+import com.junkfood.seal.ui.page.filemanager.FileManagerPage
+import com.junkfood.seal.ui.page.player.PlayerActivity
 import com.junkfood.seal.ui.page.settings.troubleshooting.TroubleShootingPage
 import com.junkfood.seal.ui.page.videolist.VideoListPage
 import kotlinx.coroutines.launch
@@ -150,9 +152,27 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                             view.slightHapticFeedback()
                             scope.launch { drawerState.open() }
                         },
+                        onNavigateToPlayer = { path ->
+                            PlayerActivity.start(context, path)
+                        },
                     )
                 }
-                animatedComposable(Route.DOWNLOADS) { VideoListPage { onNavigateBack() } }
+                animatedComposable(Route.DOWNLOADS) {
+                    VideoListPage(
+                        onNavigateBack = { onNavigateBack() },
+                        onNavigateToPlayer = { path ->
+                            PlayerActivity.start(context, path)
+                        },
+                    )
+                }
+                animatedComposable(Route.FILE_MANAGER) {
+                    FileManagerPage(
+                        onNavigateBack = onNavigateBack,
+                        onNavigateToPlayer = { path ->
+                            PlayerActivity.start(context, path)
+                        },
+                    )
+                }
                 animatedComposableVariant(Route.TASK_LIST) {
                     TaskListPage(
                         onNavigateBack = onNavigateBack,

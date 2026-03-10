@@ -134,7 +134,11 @@ private const val TAG = "VideoListPage"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoListPage(viewModel: VideoListViewModel = koinViewModel(), onNavigateBack: () -> Unit) {
+fun VideoListPage(
+    viewModel: VideoListViewModel = koinViewModel(),
+    onNavigateBack: () -> Unit,
+    onNavigateToPlayer: (String) -> Unit = {},
+) {
     val viewState by viewModel.stateFlow.collectAsStateWithLifecycle()
     val fullVideoList by viewModel.videoListFlow.collectAsStateWithLifecycle(emptyList())
     val searchedVideoList by
@@ -488,10 +492,19 @@ fun VideoListPage(viewModel: VideoListViewModel = koinViewModel(), onNavigateBac
                                     else selectedItemIds.add(id)
                                 },
                                 onClick = {
-                                    FileUtil.openFile(path = videoPath) {
-                                        ToastUtil.makeToastSuspend(
-                                            App.context.getString(R.string.file_unavailable)
-                                        )
+                                    val ext = videoPath.substringAfterLast('.', "").lowercase()
+                                    val mediaExtensions = setOf(
+                                        "mp4", "mkv", "webm", "avi", "mov", "flv", "m4v",
+                                        "mp3", "m4a", "ogg", "opus", "flac", "wav", "aac", "wma",
+                                    )
+                                    if (ext in mediaExtensions) {
+                                        onNavigateToPlayer(videoPath)
+                                    } else {
+                                        FileUtil.openFile(path = videoPath) {
+                                            ToastUtil.makeToastSuspend(
+                                                App.context.getString(R.string.file_unavailable)
+                                            )
+                                        }
                                     }
                                 },
                                 onLongClick = {

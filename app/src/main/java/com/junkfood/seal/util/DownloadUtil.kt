@@ -59,11 +59,11 @@ object DownloadUtil {
 
     private const val TAG = "DownloadUtil"
 
-    const val BASENAME = "%(title).200B"
+    const val BASENAME = "%(title).70B"
 
     const val EXTENSION = ".%(ext)s"
 
-    private const val ID = "[%(id)s]"
+    private const val ID = "[%(id)s] %(epoch)s"
 
     private const val CLIP_TIMESTAMP = "%(section_start)d-%(section_end)d"
 
@@ -74,7 +74,7 @@ object DownloadUtil {
     private const val OUTPUT_TEMPLATE_CLIPS = "$BASENAME [$CLIP_TIMESTAMP]$EXTENSION"
 
     private const val OUTPUT_TEMPLATE_CHAPTERS =
-        "chapter:$BASENAME/%(section_number)d - %(section_title).200B$EXTENSION"
+        "chapter:$BASENAME/%(section_number)d - %(section_title).70B$EXTENSION"
 
     private const val OUTPUT_TEMPLATE_SPLIT = "$BASENAME/$OUTPUT_TEMPLATE_DEFAULT"
 
@@ -357,6 +357,26 @@ object DownloadUtil {
             }
         }
     }
+
+    fun DownloadPreferences.withPreset(preset: DownloadPreset): DownloadPreferences =
+        when (preset) {
+            DownloadPreset.BEST_QUALITY ->
+                copy(
+                    extractAudio = false,
+                    videoFormat = FORMAT_QUALITY,
+                    videoResolution = RES_HIGHEST,
+                    formatSorting = false,
+                )
+            DownloadPreset.BEST_COMPATIBILITY ->
+                copy(
+                    extractAudio = false,
+                    videoFormat = FORMAT_COMPATIBILITY,
+                    videoResolution = RES_HIGHEST,
+                    formatSorting = false,
+                )
+            DownloadPreset.AUDIO_ONLY ->
+                copy(extractAudio = true)
+        }
 
     private fun YoutubeDLRequest.enableCookies(userAgentString: String): YoutubeDLRequest =
         this.addOption("--cookies", context.getCookiesFile().absolutePath).apply {
@@ -684,6 +704,9 @@ object DownloadUtil {
             request
                 .apply {
                     addOption("--no-mtime")
+                    addOption("--windows-filenames")
+                    addOption("--trim-filenames", "60")
+                    addOption("--no-overwrites")
                     //                addOption("-v")
                     if (cookies) {
                         enableCookies(userAgentString)
@@ -777,6 +800,8 @@ object DownloadUtil {
                     }
                     if (Build.VERSION.SDK_INT > 23 && !sdcard)
                         addOption("-P", "temp:" + getExternalTempDir())
+
+                    addOption("-o", "temp:%(id)s.%(ext)s")
 
                     if (splitByChapter) {
                         addOption("-o", OUTPUT_TEMPLATE_CHAPTERS)
@@ -887,6 +912,10 @@ object DownloadUtil {
                 YoutubeDLRequest(urlList).apply {
                     commandDirectory.takeIf { it.isNotEmpty() }?.let { addOption("-P", it) }
                     addOption("--newline")
+                    addOption("--windows-filenames")
+                    addOption("--trim-filenames", "60")
+                    addOption("--no-overwrites")
+                    addOption("-o", "temp:%(id)s.%(ext)s")
                     if (aria2c) {
                         enableAria2c()
                     }
@@ -928,6 +957,10 @@ object DownloadUtil {
                 YoutubeDLRequest(urlList).apply {
                     commandDirectory.takeIf { it.isNotEmpty() }?.let { addOption("-P", it) }
                     addOption("--newline")
+                    addOption("--windows-filenames")
+                    addOption("--trim-filenames", "60")
+                    addOption("--no-overwrites")
+                    addOption("-o", "temp:%(id)s.%(ext)s")
                     if (aria2c) {
                         enableAria2c()
                     }

@@ -156,6 +156,8 @@
     <string name="status_completed">Finished</string>
     <string name="status_downloading">Downloading</string>
     <string name="status_canceled">Canceled</string>
+    <string name="status_paused">Paused</string>
+    <string name="pause">Pause</string>
     <string name="status_fetching_video_info">Fetching info</string>
     <string name="open_file">Open file</string>
     <string name="restart">Restart</string>
@@ -450,4 +452,38 @@
         <item quantity="one">%d audio</item>
         <item quantity="other">%d audios</item>
     </plurals>
+    <string name="yolo_mode">Yolo mode</string>
+    <string name="yolo_mode_desc">Skip configuration dialog when sharing URLs from other apps</string>
+    <string name="download_started">Download started</string>
+    <string name="status_retrying">Retrying (attempt %d)…</string>
+    <string name="clipboard_monitoring">Clipboard URL detection</string>
+    <string name="clipboard_monitoring_desc">Automatically detect URLs from clipboard when opening the app</string>
+    <string name="clipboard_url_detected">URL detected in clipboard</string>
+    <string name="auto_resume_on_restart">Auto-resume on restart</string>
+    <string name="auto_resume_on_restart_desc">Automatically resume interrupted downloads when the app restarts</string>
+    <string name="playback_speed">Playback speed</string>
+    <string name="toggle_orientation">Toggle orientation</string>
+    <string name="file_manager">File manager</string>
+    <string name="empty_directory">No files found</string>
+    <string name="delete_file_confirm">Delete \"%s\"?</string>
+    <string name="sort_by_date">Date</string>
+    <string name="sort_by_name">Name</string>
+    <string name="sort_by_size">Size</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="yolo_download">YOLO</string>
+    <string name="yolo_download_label">Seal YOLO</string>
+    <string name="site_profiles">Site profiles</string>
+    <string name="site_profiles_desc">Configure download presets per website</string>
+    <string name="preset_best_quality">Best quality</string>
+    <string name="preset_best_compatibility">Best compatibility</string>
+    <string name="preset_audio_only">Audio only</string>
+    <string name="global_default_preset">Global default preset</string>
+    <string name="global_default_preset_desc">Fallback preset when no site profile matches</string>
+    <string name="add_site_profile">Add site profile</string>
+    <string name="domain">Domain</string>
+    <string name="domain_hint">e.g. youtube.com</string>
+    <string name="download_preset">Download preset</string>
+    <string name="no_site_profiles">No site profiles configured</string>
+    <string name="use_default_preferences">Use default preferences</string>
+    <string name="delete_site_profile">Delete site profile</string>
 </resources>

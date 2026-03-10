@@ -94,9 +94,14 @@ data class Task(
             DownloadState, Restartable
 
         @Serializable
+        data class Paused(override val action: RestartableAction, val progress: Float? = null) :
+            DownloadState, Restartable
+
+        @Serializable
         data class Error(
             @Transient val throwable: Throwable = Throwable(),
             override val action: RestartableAction,
+            val retryCount: Int = 0,
         ) : DownloadState, Restartable
 
         @Serializable data class Completed(val filePath: String?) : DownloadState
@@ -109,8 +114,9 @@ data class Task(
             get() =
                 when (this) {
                     is Canceled -> 4
-                    is Error -> 5
-                    is Completed -> 6
+                    is Paused -> 5
+                    is Error -> 6
+                    is Completed -> 7
                     Idle -> 3
                     is FetchingInfo -> 2
                     ReadyWithInfo -> 1
@@ -154,7 +160,9 @@ data class Task(
                     extractorKey = info.extractorKey,
                     duration = info.duration?.roundToInt() ?: 0,
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
-                    fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
+                    fileSizeApprox = info.fileSize ?: info.fileSizeApprox
+                        ?: formats.sumOf { it.fileSize ?: it.fileSizeApprox ?: .0 }
+                            .takeIf { it > 0 } ?: .0,
                     videoFormats = videoFormats,
                     audioOnlyFormats = audioOnlyFormats,
                 )

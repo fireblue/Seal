@@ -16,7 +16,11 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.FlashOn
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.HistoryToggleOff
@@ -29,6 +33,7 @@ import androidx.compose.material.icons.outlined.PlaylistAddCheck
 import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.PrintDisabled
 import androidx.compose.material.icons.outlined.RemoveDone
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.Visibility
@@ -83,6 +88,10 @@ import com.junkfood.seal.ui.component.SealDialog
 import com.junkfood.seal.ui.page.download.NotificationPermissionDialog
 import com.junkfood.seal.util.CONFIGURE
 import com.junkfood.seal.util.CUSTOM_COMMAND
+import com.junkfood.seal.util.DownloadPreset
+import com.junkfood.seal.util.AUTO_RESUME_ON_RESTART
+import com.junkfood.seal.util.CLIPBOARD_MONITORING
+import com.junkfood.seal.util.YOLO_MODE
 import com.junkfood.seal.util.DEBUG
 import com.junkfood.seal.util.DISABLE_PREVIEW
 import com.junkfood.seal.util.DOWNLOAD_ARCHIVE
@@ -273,6 +282,61 @@ fun GeneralDownloadPreferences(onNavigateBack: () -> Unit, navigateToTemplate: (
                             PreferenceUtil.updateValue(CONFIGURE, configureBeforeDownload)
                         },
                     )
+                }
+
+                item {
+                    var yoloMode by remember { mutableStateOf(YOLO_MODE.getBoolean()) }
+                    PreferenceSwitch(
+                        title = stringResource(id = R.string.yolo_mode),
+                        description = stringResource(id = R.string.yolo_mode_desc),
+                        icon = Icons.Outlined.FlashOn,
+                        isChecked = yoloMode,
+                        onClick = {
+                            yoloMode = !yoloMode
+                            PreferenceUtil.updateValue(YOLO_MODE, yoloMode)
+                        },
+                    )
+                }
+
+                item {
+                    var autoResume by remember { mutableStateOf(AUTO_RESUME_ON_RESTART.getBoolean(default = true)) }
+                    PreferenceSwitch(
+                        title = stringResource(id = R.string.auto_resume_on_restart),
+                        description = stringResource(id = R.string.auto_resume_on_restart_desc),
+                        icon = Icons.Outlined.RestartAlt,
+                        isChecked = autoResume,
+                        onClick = {
+                            autoResume = !autoResume
+                            PreferenceUtil.updateValue(AUTO_RESUME_ON_RESTART, autoResume)
+                        },
+                    )
+                }
+
+                item {
+                    var clipboardMonitor by remember { mutableStateOf(CLIPBOARD_MONITORING.getBoolean(default = false)) }
+                    PreferenceSwitch(
+                        title = stringResource(id = R.string.clipboard_monitoring),
+                        description = stringResource(id = R.string.clipboard_monitoring_desc),
+                        icon = Icons.Outlined.ContentPaste,
+                        isChecked = clipboardMonitor,
+                        onClick = {
+                            clipboardMonitor = !clipboardMonitor
+                            PreferenceUtil.updateValue(CLIPBOARD_MONITORING, clipboardMonitor)
+                        },
+                    )
+                }
+
+                item {
+                    var showSiteProfilesDialog by remember { mutableStateOf(false) }
+                    PreferenceItem(
+                        title = stringResource(id = R.string.site_profiles),
+                        description = stringResource(id = R.string.site_profiles_desc),
+                        icon = Icons.Outlined.Language,
+                        onClick = { showSiteProfilesDialog = true },
+                    )
+                    if (showSiteProfilesDialog) {
+                        SiteProfilesDialog(onDismiss = { showSiteProfilesDialog = false })
+                    }
                 }
 
                 item {
@@ -540,4 +604,188 @@ fun DownloadArchiveDialogPreview() {
     val strs = buildList { repeat(20) { add("youtube IPf4AxotvNU") } }
     val str = strs.fold(initial = "") { acc, text -> acc + text + "\n" }
     DownloadArchiveDialog(archiveFileContent = str, onDismissRequest = {}) {}
+}
+
+@Composable
+private fun presetLabel(preset: DownloadPreset): String =
+    when (preset) {
+        DownloadPreset.BEST_QUALITY -> stringResource(R.string.preset_best_quality)
+        DownloadPreset.BEST_COMPATIBILITY -> stringResource(R.string.preset_best_compatibility)
+        DownloadPreset.AUDIO_ONLY -> stringResource(R.string.preset_audio_only)
+    }
+
+@Composable
+fun SiteProfilesDialog(onDismiss: () -> Unit) {
+    var sitePresets by remember { mutableStateOf(PreferenceUtil.getAllSitePresets()) }
+    var globalPreset by remember { mutableStateOf(PreferenceUtil.getGlobalPreset()) }
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    SealDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.site_profiles)) },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                item {
+                    PreferenceSubtitle(text = stringResource(R.string.global_default_preset))
+                }
+                item {
+                    val options = listOf<DownloadPreset?>(null) + DownloadPreset.entries
+                    Column {
+                        options.forEach { preset ->
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .selectable(
+                                            selected = globalPreset == preset,
+                                            onClick = {
+                                                globalPreset = preset
+                                                PreferenceUtil.setGlobalPreset(preset)
+                                            },
+                                        )
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = globalPreset == preset,
+                                    onClick = null,
+                                )
+                                Spacer(Modifier.size(8.dp))
+                                Text(
+                                    text =
+                                        if (preset == null)
+                                            stringResource(R.string.use_default_preferences)
+                                        else presetLabel(preset),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PreferenceSubtitle(text = stringResource(R.string.site_profiles))
+                        IconButton(onClick = { showAddDialog = true }) {
+                            Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.add_site_profile))
+                        }
+                    }
+                }
+
+                if (sitePresets.isEmpty()) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.no_site_profiles),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    sitePresets.forEach { (domain, preset) ->
+                        item(key = domain) {
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = domain,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                    Text(
+                                        text = presetLabel(preset),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        PreferenceUtil.removeSitePreset(domain)
+                                        sitePresets = PreferenceUtil.getAllSitePresets()
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = stringResource(R.string.delete_site_profile),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { ConfirmButton(stringResource(R.string.okay)) { onDismiss() } },
+    )
+
+    if (showAddDialog) {
+        AddSiteProfileDialog(
+            onDismiss = { showAddDialog = false },
+            onConfirm = { domain, preset ->
+                PreferenceUtil.setSitePreset(domain, preset)
+                sitePresets = PreferenceUtil.getAllSitePresets()
+                showAddDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+fun AddSiteProfileDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, DownloadPreset) -> Unit,
+) {
+    var domain by remember { mutableStateOf("") }
+    var selectedPreset by remember { mutableStateOf(DownloadPreset.BEST_QUALITY) }
+
+    SealDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_site_profile)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = domain,
+                    onValueChange = { domain = it.trim() },
+                    label = { Text(stringResource(R.string.domain)) },
+                    placeholder = { Text(stringResource(R.string.domain_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.size(16.dp))
+                Text(
+                    text = stringResource(R.string.download_preset),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                DownloadPreset.entries.forEach { preset ->
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .selectable(
+                                    selected = selectedPreset == preset,
+                                    onClick = { selectedPreset = preset },
+                                )
+                                .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = selectedPreset == preset, onClick = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(presetLabel(preset))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            ConfirmButton(stringResource(R.string.okay)) {
+                if (domain.isNotBlank()) onConfirm(domain, selectedPreset)
+            }
+        },
+        dismissButton = { DismissButton { onDismiss() } },
+    )
 }

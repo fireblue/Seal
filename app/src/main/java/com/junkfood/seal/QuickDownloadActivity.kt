@@ -28,12 +28,18 @@ import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Se
 import com.junkfood.seal.ui.page.downloadv2.configure.FormatPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage
 import com.junkfood.seal.ui.theme.SealTheme
+import com.junkfood.seal.download.DownloaderV2
+import com.junkfood.seal.download.Task
 import com.junkfood.seal.util.DownloadUtil
+import com.junkfood.seal.util.DownloadUtil.withPreset
 import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.util.YOLO_MODE
 import com.junkfood.seal.util.matchUrlFromSharedText
 import com.junkfood.seal.util.setLanguage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.getViewModel
 
 private const val TAG = "QuickDownloadActivity"
@@ -72,6 +78,20 @@ class QuickDownloadActivity : ComponentActivity() {
         }
 
         App.startService()
+
+        if (YOLO_MODE.getBoolean()) {
+            val preferences = DownloadUtil.DownloadPreferences.createFromPreferences()
+            val preset = PreferenceUtil.getPresetForUrl(sharedUrlCached)
+            val finalPreferences =
+                if (preset != null) preferences.withPreset(preset) else preferences
+            val downloader: DownloaderV2 by inject()
+            sharedUrlCached.lines().filter { it.isNotBlank() }.forEach { url ->
+                downloader.enqueue(Task(url = url, preferences = finalPreferences))
+            }
+            android.widget.Toast.makeText(this, R.string.download_started, android.widget.Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
         enableEdgeToEdge()
 

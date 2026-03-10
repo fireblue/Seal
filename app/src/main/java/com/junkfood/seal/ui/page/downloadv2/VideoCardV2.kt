@@ -66,6 +66,7 @@ import com.junkfood.seal.download.Task.DownloadState.Completed
 import com.junkfood.seal.download.Task.DownloadState.Error
 import com.junkfood.seal.download.Task.DownloadState.FetchingInfo
 import com.junkfood.seal.download.Task.DownloadState.Idle
+import com.junkfood.seal.download.Task.DownloadState.Paused
 import com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
 import com.junkfood.seal.download.Task.DownloadState.Running
 import com.junkfood.seal.download.Task.RestartableAction
@@ -79,6 +80,30 @@ import com.junkfood.seal.util.toDurationText
 import com.junkfood.seal.util.toFileSizeText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+
+private val speedRegex = """at\s+([\d.]+\s*\w+/s)""".toRegex()
+private val etaRegex = """ETA\s+([\d:]+)""".toRegex()
+private val sizeRegex = """of\s+~?\s*([\d.]+\s*\w+)""".toRegex()
+private val phaseRegex = """\[(\w+)]""".toRegex()
+
+private fun formatProgressText(raw: String): String {
+    // Handle non-download lines like [Merger], [ExtractAudio], etc.
+    val phase = phaseRegex.find(raw)?.groupValues?.get(1)
+    if (phase != null && phase != "download") {
+        return raw.substringAfter("]").trim()
+    }
+
+    val speed = speedRegex.find(raw)?.groupValues?.get(1)
+    val eta = etaRegex.find(raw)?.groupValues?.get(1)
+    val size = sizeRegex.find(raw)?.groupValues?.get(1)
+
+    val parts = buildList {
+        speed?.let { add(it) }
+        eta?.let { add("ETA $it") }
+        size?.let { add(it) }
+    }
+    return if (parts.isNotEmpty()) parts.joinToString(" · ") else raw
+}
 
 private val IconButtonSize = 64.dp
 private val IconSize = 36.dp
@@ -368,11 +393,12 @@ private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSiz
         color = LabelContainerColor,
         shape = MaterialTheme.shapes.extraSmall,
     ) {
-        val fileSizeText = fileSizeApprox.toFileSizeText()
+        val fileSizeText = if (fileSizeApprox > 0) fileSizeApprox.toFileSizeText() else null
         val durationText = duration.toDurationText()
+        val labelText = if (fileSizeText != null) "$fileSizeText  $durationText" else durationText
         Text(
             modifier = Modifier.padding(horizontal = 4.dp),
-            text = "$fileSizeText  $durationText",
+            text = labelText,
             style = MaterialTheme.typography.labelSmall,
             color = Color.White,
         )
@@ -411,17 +437,25 @@ fun ListItemStateText(
         val text =
             when (downloadState) {
                 is Canceled -> stringResource(R.string.status_canceled)
+                is Paused -> stringResource(R.string.status_paused)
                 is Completed -> stringResource(R.string.status_downloaded)
-                is Error -> stringResource(R.string.status_error)
+                is Error -> {
+                    val errorMsg = downloadState.throwable.message?.lineSequence()?.firstOrNull()
+                        ?: stringResource(R.string.status_error)
+                    if (downloadState.retryCount > 0) {
+                        stringResource(R.string.status_retrying, downloadState.retryCount)
+                    } else errorMsg
+                }
                 is FetchingInfo -> stringResource(R.string.status_fetching_video_info)
                 Idle -> stringResource(R.string.status_enqueued)
                 ReadyWithInfo -> stringResource(R.string.status_enqueued)
                 is Running -> {
                     val progress = downloadState.progress
-                    if (progress >= 0) {
-                        "%.1f %%".format(downloadState.progress * 100)
-                    } else {
-                        stringResource(R.string.status_downloading)
+                    val progressText = downloadState.progressText
+                    when {
+                        progressText.isNotBlank() -> formatProgressText(progressText)
+                        progress >= 0 -> "%.1f %%".format(progress * 100)
+                        else -> stringResource(R.string.status_downloading)
                     }
                 }
             }
@@ -430,6 +464,14 @@ fun ListItemStateText(
                 is Canceled -> {
                     Icon(
                         imageVector = Icons.Outlined.Cancel,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = sizeModifier,
+                    )
+                }
+                is Paused -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Pause,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = sizeModifier,
@@ -469,11 +511,15 @@ fun ListItemStateText(
 
             Spacer(Modifier.width(8.dp))
 
+            val isRunning = downloadState is Running
             Text(
                 text = text,
                 modifier = Modifier,
                 style = MaterialTheme.typography.labelMedium.merge(letterSpacing = 0.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (isRunning) 2 else 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = true,
             )
         }
     }
@@ -490,29 +536,41 @@ private fun CardItemStateText(modifier: Modifier = Modifier, downloadState: Task
 
     val text =
         when (downloadState) {
-            is Canceled -> R.string.status_canceled
-            is Completed -> R.string.status_downloaded
-            is Error -> R.string.status_error
-            is FetchingInfo -> R.string.status_fetching_video_info
-            Idle -> R.string.status_enqueued
-            ReadyWithInfo -> R.string.status_enqueued
-            is Running -> R.string.status_downloading
+            is Canceled -> stringResource(R.string.status_canceled)
+            is Paused -> stringResource(R.string.status_paused)
+            is Completed -> stringResource(R.string.status_downloaded)
+            is Error ->
+                downloadState.throwable.message ?: stringResource(R.string.status_error)
+            is FetchingInfo -> stringResource(R.string.status_fetching_video_info)
+            Idle -> stringResource(R.string.status_enqueued)
+            ReadyWithInfo -> stringResource(R.string.status_enqueued)
+            is Running -> {
+                val progressText = downloadState.progressText
+                when {
+                    progressText.isNotBlank() -> formatProgressText(progressText)
+                    downloadState.progress >= 0 -> "%.1f %%".format(downloadState.progress * 100)
+                    else -> stringResource(R.string.status_downloading)
+                }
+            }
         }
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (downloadState is Error) {
+    val isError = downloadState is Error
+    Row(modifier = modifier, verticalAlignment = if (isError) Alignment.Top else Alignment.CenterVertically) {
+        if (isError) {
             Icon(
                 imageVector = Icons.Rounded.Error,
                 contentDescription = null,
                 tint = errorColor,
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(12.dp).padding(top = 2.dp),
             )
             Spacer(Modifier.width(4.dp))
         }
         Text(
-            text = stringResource(id = text),
+            text = text,
             modifier = Modifier,
             style = textStyle,
             color = contentColor,
+            maxLines = if (isError) 4 else if (downloadState is Running) 2 else 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -532,6 +590,11 @@ fun ActionButton(
                 onActionPost(UiAction.Resume)
             }
         }
+        is Paused -> {
+            ResumeButton(modifier = modifier, downloadState.progress) {
+                onActionPost(UiAction.Resume)
+            }
+        }
         is Completed -> {
             PlayVideoButton(modifier = modifier) {
                 onActionPost(UiAction.OpenFile(downloadState.filePath))
@@ -544,7 +607,7 @@ fun ActionButton(
         }
         is Running -> {
             ProgressButton(modifier = modifier, progress = downloadState.progress) {
-                onActionPost(UiAction.Cancel)
+                onActionPost(UiAction.Pause)
             }
         }
     }
