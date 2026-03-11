@@ -285,6 +285,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         if (throwable is YoutubeDL.CanceledException) {
                             return@onFailure
                         }
+                        Log.e(TAG, "fetchInfo failed for ${task.url}: ${throwable.message}", throwable)
                         task.handleFailure(throwable, FetchInfo)
                     }
             }
@@ -362,6 +363,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         if (throwable is YoutubeDL.CanceledException) {
                             return@onFailure
                         }
+                        Log.e(TAG, "download failed for ${url}: ${throwable.message}", throwable)
                         handleFailure(throwable, Download)
                     }
             }
@@ -369,6 +371,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     }
 
     private fun Task.handleFailure(throwable: Throwable, action: Task.RestartableAction, retryCount: Int = 0) {
+        Log.w(TAG, "handleFailure: action=$action, retry=$retryCount/$MAX_RETRIES, url=$url, error=${throwable.message}")
         if (retryCount < MAX_RETRIES) {
             downloadState = Error(throwable = throwable, action = action, retryCount = retryCount + 1)
             scope.launch {
@@ -489,6 +492,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         if (throwable is YoutubeDL.CanceledException) {
                             return@onFailure
                         }
+                        Log.e(TAG, "execute failed for ${url}: ${throwable.message}", throwable)
                         handleFailure(throwable, Download)
                     }
                     .onSuccess {
