@@ -182,6 +182,8 @@ object DownloadUtil {
                     addOption("--no-playlist")
                     addOption("--socket-timeout", "5")
                 }
+            Log.d(TAG, "fetchVideoInfoFromUrl: url=$url, cookies=${cookies}, proxy=${proxy}, forceIpv4=${forceIpv4}")
+            for (s in request.buildCommand()) Log.d(TAG, "fetchInfo cmd: $s")
             return getVideoInfo(request, taskKey)
         }
     }
@@ -379,11 +381,7 @@ object DownloadUtil {
         }
 
     private fun YoutubeDLRequest.enableCookies(userAgentString: String): YoutubeDLRequest =
-        this.addOption("--cookies", context.getCookiesFile().absolutePath).apply {
-            if (userAgentString.isNotEmpty()) {
-                addOption("--add-header", "User-Agent:$userAgentString")
-            }
-        }
+        this.addOption("--cookies", context.getCookiesFile().absolutePath)
 
     private fun YoutubeDLRequest.enableProxy(proxyUrl: String): YoutubeDLRequest =
         this.addOption("--proxy", proxyUrl)
@@ -853,6 +851,7 @@ object DownloadUtil {
                         .execute(request = this, processId = taskId, callback = progressCallback)
                 }
                 .onFailure { th ->
+                    Log.e(TAG, "yt-dlp execution failed: ${th.message}", th)
                     return if (
                         sponsorBlock &&
                             th.message?.contains("Unable to communicate with SponsorBlock API") ==
