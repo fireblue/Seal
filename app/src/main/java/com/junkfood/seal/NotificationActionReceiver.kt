@@ -55,9 +55,7 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
         if (res) {
             Log.d(TAG, "Task (id:$taskId) was killed.")
         } else {
-            // todo: reserved for custom commands
             YoutubeDL.destroyProcessById(taskId)
-            Downloader.onProcessCanceled(taskId)
         }
     }
 

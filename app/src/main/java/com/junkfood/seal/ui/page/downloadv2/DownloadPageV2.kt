@@ -38,6 +38,8 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButton
@@ -233,6 +235,35 @@ fun DownloadPageV2(
             dialogViewModel.postAction(Action.ShowSheet())
         },
         onMenuOpen = onMenuOpen,
+        onCancelAll = {
+            downloader.getTaskStateMap().toMap().forEach { (task, state) ->
+                if (state.downloadState is Running || state.downloadState is FetchingInfo ||
+                    state.downloadState == Idle || state.downloadState == ReadyWithInfo
+                ) {
+                    downloader.cancel(task)
+                }
+            }
+        },
+        onPauseAll = {
+            downloader.getTaskStateMap().toMap().forEach { (task, state) ->
+                if (state.downloadState is Running || state.downloadState is FetchingInfo) {
+                    downloader.pause(task)
+                }
+            }
+        },
+        onClearCompleted = {
+            downloader.getTaskStateMap().toMap().forEach { (task, state) ->
+                if (state.downloadState is Completed) {
+                    downloader.remove(task)
+                }
+            }
+        },
+        onClearAll = {
+            downloader.getTaskStateMap().keys.toList().forEach { task ->
+                downloader.cancel(task)
+                downloader.remove(task)
+            }
+        },
     ) { task, action ->
         view.slightHapticFeedback()
         when (action) {
@@ -350,6 +381,10 @@ fun DownloadPageImplV2(
     taskDownloadStateMap: SnapshotStateMap<Task, Task.State>,
     downloadCallback: () -> Unit = {},
     onMenuOpen: (() -> Unit) = {},
+    onCancelAll: () -> Unit = {},
+    onPauseAll: () -> Unit = {},
+    onClearCompleted: () -> Unit = {},
+    onClearAll: () -> Unit = {},
     onActionPost: (Task, UiAction) -> Unit,
 ) {
     var activeFilter by remember { mutableStateOf(Filter.All) }
@@ -477,7 +512,10 @@ fun DownloadPageImplV2(
                                 audioCount = filteredMap.size - videoCount,
                                 isGridView = isGridView,
                                 onToggleView = { isGridView = !isGridView },
-                                onShowMenu = { context.makeToast("Not implemented yet!") },
+                                onCancelAll = onCancelAll,
+                                onPauseAll = onPauseAll,
+                                onClearCompleted = onClearCompleted,
+                                onClearAll = onClearAll,
                             )
                         }
                     }
@@ -699,7 +737,10 @@ fun SubHeader(
     audioCount: Int = 0,
     isGridView: Boolean = true,
     onToggleView: () -> Unit,
-    onShowMenu: () -> Unit,
+    onCancelAll: () -> Unit,
+    onPauseAll: () -> Unit,
+    onClearCompleted: () -> Unit,
+    onClearAll: () -> Unit,
 ) {
     val text = buildString {
         if (videoCount > 0) {
@@ -742,16 +783,52 @@ fun SubHeader(
 
         Spacer(Modifier.width(4.dp))
 
-        FilledIconButton(
-            onClick = onShowMenu,
-            modifier = Modifier.clearAndSetSemantics {}.size(32.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(containerColor = containerColor),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.MoreVert,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
+        Box {
+            var expanded by remember { mutableStateOf(false) }
+
+            FilledIconButton(
+                onClick = { expanded = true },
+                modifier = Modifier.clearAndSetSemantics {}.size(32.dp),
+                colors =
+                    IconButtonDefaults.filledIconButtonColors(containerColor = containerColor),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.MoreVert,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.cancel_all)) },
+                    onClick = {
+                        onCancelAll()
+                        expanded = false
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.pause_all)) },
+                    onClick = {
+                        onPauseAll()
+                        expanded = false
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.clear_completed)) },
+                    onClick = {
+                        onClearCompleted()
+                        expanded = false
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.clear_all)) },
+                    onClick = {
+                        onClearAll()
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
