@@ -479,4 +479,8 @@
     <string name="no_site_profiles">未配置任何站点</string>
     <string name="use_default_preferences">使用默认设置</string>
     <string name="delete_site_profile">删除站点配置</string>
+    <string name="cancel_all">取消全部</string>
+    <string name="pause_all">暂停全部</string>
+    <string name="clear_completed">清除已完成</string>
+    <string name="clear_all">清除全部</string>
 </resources>

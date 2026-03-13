@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DesktopWindows
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,7 +20,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,11 +31,16 @@ import com.google.accompanist.web.AccompanistWebViewClient
 import com.google.accompanist.web.WebView
 import com.google.accompanist.web.rememberWebViewState
 import com.google.android.material.R
+import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateString
+import com.junkfood.seal.util.USER_AGENT
 import com.junkfood.seal.util.USER_AGENT_STRING
 import com.junkfood.seal.util.connectWithDelimiter
 
 private const val TAG = "WebViewPage"
+
+private const val DESKTOP_USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
 
 data class Cookie(
     val domain: String = "",
@@ -86,6 +95,8 @@ fun WebViewPage(cookiesViewModel: CookiesViewModel, onDismissRequest: () -> Unit
     val cookieSet = remember { mutableSetOf<Cookie>() }
     val websiteUrl = state.editingCookieProfile.url
     val webViewState = rememberWebViewState(websiteUrl)
+    var desktopMode by remember { mutableStateOf(false) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -101,6 +112,23 @@ fun WebViewPage(cookiesViewModel: CookiesViewModel, onDismissRequest: () -> Unit
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        desktopMode = !desktopMode
+                        val ua = if (desktopMode) DESKTOP_USER_AGENT else ""
+                        USER_AGENT_STRING.updateString(ua)
+                        USER_AGENT.updateBoolean(ua.isNotEmpty())
+                        webViewRef?.let { wv ->
+                            wv.settings.userAgentString =
+                                if (desktopMode) DESKTOP_USER_AGENT else null
+                            wv.reload()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = if (desktopMode) Icons.Outlined.PhoneAndroid
+                                else Icons.Outlined.DesktopWindows,
+                            contentDescription = null,
+                        )
+                    }
                     TextButton(onClick = onDismissRequest) {
                         Text(text = stringResource(id = R.string.abc_action_mode_done))
                     }
@@ -138,9 +166,9 @@ fun WebViewPage(cookiesViewModel: CookiesViewModel, onDismissRequest: () -> Unit
                         javaScriptCanOpenWindowsAutomatically = true
                         javaScriptEnabled = true
                         domStorageEnabled = true
-                        USER_AGENT_STRING.updateString(userAgentString)
                     }
                     cookieManager.setAcceptThirdPartyCookies(this, true)
+                    webViewRef = this
                 }
             },
         )

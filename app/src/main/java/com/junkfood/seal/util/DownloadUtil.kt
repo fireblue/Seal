@@ -381,7 +381,11 @@ object DownloadUtil {
         }
 
     private fun YoutubeDLRequest.enableCookies(userAgentString: String): YoutubeDLRequest =
-        this.addOption("--cookies", context.getCookiesFile().absolutePath)
+        this.addOption("--cookies", context.getCookiesFile().absolutePath).apply {
+            if (userAgentString.isNotEmpty()) {
+                addOption("--add-header", "User-Agent:$userAgentString")
+            }
+        }
 
     private fun YoutubeDLRequest.enableProxy(proxyUrl: String): YoutubeDLRequest =
         this.addOption("--proxy", proxyUrl)

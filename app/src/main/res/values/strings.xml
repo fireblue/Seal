@@ -489,4 +489,8 @@
     <string name="no_site_profiles">No site profiles configured</string>
     <string name="use_default_preferences">Use default preferences</string>
     <string name="delete_site_profile">Delete site profile</string>
+    <string name="cancel_all">Cancel all</string>
+    <string name="pause_all">Pause all</string>
+    <string name="clear_completed">Clear completed</string>
+    <string name="clear_all">Clear all</string>
 </resources>

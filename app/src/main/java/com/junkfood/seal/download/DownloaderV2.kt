@@ -99,12 +99,6 @@ internal object FakeDownloaderV2 : DownloaderV2 {
     }
 }
 
-/**
- * TODO:
- *     - Notification
- *     - Custom commands
- *     - States for ViewModels
- */
 @OptIn(FlowPreview::class)
 class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComponent {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
