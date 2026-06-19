@@ -204,24 +204,33 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             taskStateMap[this] = value
         }
 
+    /**
+     * Null-safe view of [state]. Async continuations (retry delays, download/fetch
+     * callbacks, auto-cleanup) can run after the task was removed from [taskStateMap];
+     * use this instead of [state] to avoid a NullPointerException from the `!!` above.
+     */
+    private val Task.stateOrNull: Task.State?
+        get() = taskStateMap[this]
+
     private var Task.downloadState: DownloadState
         get() = state.downloadState
         set(value) {
-            val prevState = state
+            // Do not resurrect a task that was already removed (e.g. cleared mid-flight).
+            val prevState = taskStateMap[this] ?: return
             taskStateMap[this] = prevState.copy(downloadState = value)
         }
 
     private var Task.info: VideoInfo?
         get() = state.videoInfo
         set(value) {
-            val prevState = state
+            val prevState = taskStateMap[this] ?: return
             taskStateMap[this] = prevState.copy(videoInfo = value)
         }
 
     private var Task.viewState: Task.ViewState
         get() = state.viewState
         set(value) {
-            val prevState = state
+            val prevState = taskStateMap[this] ?: return
             taskStateMap[this] = prevState.copy(viewState = value)
         }
 
@@ -300,7 +309,8 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         downloadPreferences = preferences,
                         progressCallback = { progressPercentage, _, text ->
                             val progress = progressPercentage / 100f
-                            when (val preState = downloadState) {
+                            val current = stateOrNull
+                            when (val preState = current?.downloadState) {
                                 is Running -> {
                                     downloadState =
                                         preState.copy(progress = progress, progressText = text)
@@ -308,7 +318,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                                         notificationId = notificationId,
                                         progress = progressPercentage.toInt(),
                                         text = text,
-                                        title = viewState.title,
+                                        title = current.viewState.title,
                                         taskId = id,
                                     )
                                 }
@@ -371,7 +381,10 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             scope.launch {
                 val delayMs = RETRY_BASE_DELAY_MS * (1L shl retryCount) // 3s, 6s, 12s
                 delay(delayMs)
-                if (downloadState is Error) {
+                // The task may have been removed (cleared by the user, ClearAll, or
+                // auto-cleanup) during the delay; read state safely so a stale retry
+                // becomes a no-op instead of dereferencing a missing key with `!!`.
+                if (stateOrNull?.downloadState is Error) {
                     downloadState = when (action) {
                         Download -> ReadyWithInfo
                         FetchInfo -> Idle
@@ -466,7 +479,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         _,
                         text ->
                         val progress = progressPercentage / 100f
-                        when (val preState = downloadState) {
+                        when (val preState = stateOrNull?.downloadState) {
                             is Running -> {
                                 downloadState =
                                     preState.copy(progress = progress, progressText = text)
